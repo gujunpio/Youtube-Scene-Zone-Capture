@@ -189,10 +189,7 @@ async def api_download(request: Request):
     work_dir = TEMP_DIR / video_id
     work_dir.mkdir(parents=True, exist_ok=True)
 
-    # Auto-cleanup: delete old session data before starting new download
-    freed = await asyncio.to_thread(_cleanup_old_sessions, video_id)
-    if freed > 0:
-        logger.info("Auto-cleanup freed %s before new download", _format_size(freed))
+    # Let's keep existing sessions for history list. Only delete on manual cleanup.
 
     state.cancel_flag = False
     state.current_video_id = video_id
@@ -243,6 +240,21 @@ async def api_download(request: Request):
                 state.current_video_duration = info.duration
             except Exception:
                 state.current_video_duration = 0.0
+
+            # Save meta.json for history listing
+            try:
+                meta = {
+                    "video_id": video_id,
+                    "title": info.title if 'info' in locals() else "YouTube Video",
+                    "url": url,
+                    "duration": state.current_video_duration,
+                    "thumbnail_url": info.thumbnail_url if 'info' in locals() else "",
+                }
+                with open(work_dir / "meta.json", "w", encoding="utf-8") as f:
+                    json.dump(meta, f, ensure_ascii=False, indent=2)
+            except Exception:
+                pass
+
             yield _sse({"status": "done", "video_id": video_id})
         except InterruptedError:
             yield _sse({"status": "cancelled", "message": "Download cancelled"})
@@ -504,16 +516,73 @@ async def api_storage():
         for entry in TEMP_DIR.iterdir():
             if entry.is_dir():
                 size = _dir_size(entry)
-                sessions.append({
-                    "id": entry.name,
-                    "size": size,
-                    "size_human": _format_size(size),
-                })
+                # Try to load meta.json
+                meta = {}
+                meta_path = entry / "meta.json"
+                if meta_path.is_file():
+                    try:
+                        with open(meta_path, "r", encoding="utf-8") as f:
+                            meta = json.load(f)
+                    except Exception:
+                        pass
+                
+                # Verify video file exists inside session folder
+                video_exists = _find_video_in(entry) is not None
+                
+                # Only include in history if metadata or video is present
+                if video_exists:
+                    sessions.append({
+                        "id": entry.name,
+                        "size": size,
+                        "size_human": _format_size(size),
+                        "title": meta.get("title", f"Session {entry.name}"),
+                        "url": meta.get("url", ""),
+                        "duration": meta.get("duration", 0.0),
+                        "thumbnail_url": meta.get("thumbnail_url", ""),
+                    })
     return JSONResponse({
         "total_size": total_size,
         "total_size_human": _format_size(total_size),
         "sessions": sessions,
         "temp_dir": str(TEMP_DIR),
+    })
+
+
+# ---- Select history ------------------------------------------------------
+
+@app.post("/api/select/{video_id}")
+async def api_select(video_id: str):
+    """Select a downloaded video from history."""
+    work_dir = TEMP_DIR / video_id
+    video = _find_video_in(work_dir)
+    if video is None:
+        return JSONResponse({"error": "Video not found", "message": "Video not found"}, status_code=404)
+
+    meta = {}
+    meta_path = work_dir / "meta.json"
+    if meta_path.is_file():
+        try:
+            with open(meta_path, "r", encoding="utf-8") as f:
+                meta = json.load(f)
+        except Exception:
+            pass
+
+    state.current_video_id = video_id
+    state.current_video_duration = meta.get("duration", 0.0)
+
+    try:
+        w, h = await asyncio.to_thread(preview_service.get_video_dimensions, str(video))
+    except Exception:
+        w, h = 0, 0
+
+    return JSONResponse({
+        "status": "ok",
+        "video_id": video_id,
+        "title": meta.get("title", f"Session {video_id}"),
+        "duration": state.current_video_duration,
+        "thumbnail_url": meta.get("thumbnail_url", ""),
+        "width": w,
+        "height": h,
     })
 
 

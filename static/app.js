@@ -72,7 +72,9 @@ const dom = {
     toastContainer: document.getElementById('toast-container'),
     storageSize: document.getElementById('storage-size'),
     storagePath: document.getElementById('storage-path'),
-    btnCleanup: document.getElementById('btn-cleanup')
+    btnCleanup: document.getElementById('btn-cleanup'),
+    historySection: document.getElementById('history-section'),
+    historySelect: document.getElementById('history-select')
 };
 
 // --- Helpers ---
@@ -987,9 +989,56 @@ async function updateStorageInfo() {
                 pathText = '...' + pathText.slice(-27);
             }
             dom.storagePath.textContent = `(${pathText})`;
+
+            // Populate history list
+            const sessions = data.sessions || [];
+            if (sessions.length > 0) {
+                dom.historySelect.innerHTML = '<option value="">-- Select from history --</option>';
+                sessions.forEach(sess => {
+                    const opt = document.createElement('option');
+                    opt.value = sess.id;
+                    opt.textContent = `${sess.title} (${sess.size_human})`;
+                    if (state.videoId === sess.id) {
+                        opt.selected = true;
+                    }
+                    dom.historySelect.appendChild(opt);
+                });
+                dom.historySection.hidden = false;
+            } else {
+                dom.historySection.hidden = true;
+            }
         }
     } catch (e) {
         console.warn('Failed to update storage info:', e);
+    }
+}
+
+async function selectVideoFromHistory() {
+    const videoId = dom.historySelect.value;
+    if (!videoId) return;
+
+    dom.historySelect.disabled = true;
+    try {
+        const res = await fetch(`/api/select/${videoId}`, { method: 'POST' });
+        if (res.ok) {
+            const data = await res.json();
+            state.videoId = data.video_id;
+            state.videoDuration = data.duration;
+
+            secondsToHmsInputs(0, dom.startH, dom.startM, dom.startS);
+            secondsToHmsInputs(data.duration, dom.endH, dom.endM, dom.endS);
+            updateSliderFromTimes();
+            updateFrameEstimate();
+
+            onVideoDownloaded();
+            showToast(`Loaded "${data.title}" from history`, 'success');
+        } else {
+            showToast('Failed to load video from history', 'error');
+        }
+    } catch (e) {
+        showToast('Error loading video history', 'error');
+    } finally {
+        dom.historySelect.disabled = false;
     }
 }
 
@@ -1001,11 +1050,13 @@ async function cleanupStorage() {
             if (res.ok) {
                 const data = await res.json();
                 showToast(`Storage cleaned! Freed ${data.freed_human}`, 'success');
-                // If we cleaned the current session, hide active settings
+                // Hide active settings since files are deleted
                 dom.sectionSettings.hidden = true;
                 dom.sectionOutput.hidden = true;
                 state.videoId = null;
                 state.videoDuration = 0;
+                dom.historySelect.innerHTML = '<option value="">-- Select from history --</option>';
+                dom.historySection.hidden = true;
                 updateStorageInfo();
             } else {
                 showToast('Failed to clean storage', 'error');
@@ -1019,6 +1070,7 @@ async function cleanupStorage() {
 }
 
 dom.btnCleanup.addEventListener('click', cleanupStorage);
+dom.historySelect.addEventListener('change', selectVideoFromHistory);
 
 // Initial storage update
 updateStorageInfo();
