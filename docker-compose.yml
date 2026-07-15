@@ -1,0 +1,15 @@
+services:
+  youtube-scene-capture:
+    build: .
+    container_name: yt-scene-capture
+    ports:
+      - "8080:8080"
+    volumes:
+      - yt-downloads:/tmp/yt_scene_capture
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+
+volumes:
+  yt-downloads:
+    driver: local

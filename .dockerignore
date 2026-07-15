@@ -1,0 +1,30 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temp files
+/tmp/
+*.tmp
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Docker
+docker-compose.override.yml
+
+# Spec file
+*.md
+!README.md

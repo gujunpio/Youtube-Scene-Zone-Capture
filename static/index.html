@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Scene Capture</title>
+    <meta name="description" content="Extract frames from any YouTube video at regular intervals. Supports full-frame and crop modes, multiple output formats.">
+    <link rel="icon" type="image/png" href="/static/favicon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="app-header">
+        <h1 class="app-title">🎬 YouTube Scene Capture</h1>
+        <p class="app-subtitle">Extract frames from any YouTube video</p>
+    </header>
+
+    <main class="container">
+        <!-- Section 1: Video Input -->
+        <section class="card card-section" id="section-input">
+            <div class="card-header">
+                <span class="card-icon">📥</span>
+                <h2 class="card-title">Video Input</h2>
+            </div>
+
+            <div class="input-row">
+                <div class="input-wrapper">
+                    <input type="text" id="url-input" class="text-input" placeholder="Paste YouTube URL here..." autocomplete="off" spellcheck="false">
+                    <div class="input-glow"></div>
+                </div>
+                <button id="btn-fetch" class="btn btn-primary">
+                    <span class="btn-text">Fetch Info</span>
+                    <span class="btn-loader" hidden></span>
+                </button>
+            </div>
+
+            <!-- Video Info (hidden until fetched) -->
+            <div id="video-info" class="video-info" hidden>
+                <div class="video-info-grid">
+                    <div class="thumbnail-wrapper">
+                        <img id="video-thumbnail" class="video-thumbnail" alt="Video thumbnail" loading="lazy">
+                    </div>
+                    <div class="video-details">
+                        <h3 id="video-title" class="video-title"></h3>
+                        <div class="video-meta">
+                            <span class="meta-badge">
+                                <span class="meta-icon">⏱️</span>
+                                <span id="video-duration" class="meta-value"></span>
+                            </span>
+                        </div>
+
+                        <div class="quality-row">
+                            <label class="field-label" for="quality-select">Quality</label>
+                            <select id="quality-select" class="select-input">
+                                <option value="">Select quality...</option>
+                            </select>
+                        </div>
+
+                        <button id="btn-download" class="btn btn-primary btn-download">
+                            <span class="btn-text">📥 Download Video</span>
+                            <span class="btn-loader" hidden></span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Download Progress -->
+                <div id="download-progress-area" class="progress-area" hidden>
+                    <div class="progress-bar-track">
+                        <div id="download-progress-bar" class="progress-bar-fill"></div>
+                        <div class="progress-shimmer"></div>
+                    </div>
+                    <div class="progress-stats">
+                        <span id="download-percent" class="progress-percent">0%</span>
+                        <span id="download-details" class="progress-details"></span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 2: Capture Settings -->
+        <section class="card card-section section-reveal" id="section-settings" hidden>
+            <div class="card-header">
+                <span class="card-icon">✂️</span>
+                <h2 class="card-title">Capture Settings</h2>
+            </div>
+
+            <!-- Interval -->
+            <div class="setting-group">
+                <label class="field-label">Capture Interval</label>
+                <div class="pill-group" id="interval-pills">
+                    <button class="pill" data-value="2">2s</button>
+                    <button class="pill active" data-value="5">5s</button>
+                    <button class="pill" data-value="10">10s</button>
+                    <button class="pill" data-value="60">60s</button>
+                    <button class="pill" data-value="custom">Custom</button>
+                </div>
+                <div id="custom-interval-wrap" class="custom-input-wrap" hidden>
+                    <input type="number" id="custom-interval" class="text-input small-input" min="0.5" step="0.5" value="5" placeholder="Seconds">
+                    <span class="input-suffix">seconds</span>
+                </div>
+            </div>
+
+            <!-- Time Range -->
+            <div class="setting-group">
+                <label class="field-label">Time Range</label>
+                <div class="time-range-container">
+                    <div class="time-inputs-row">
+                        <!-- Start HMS -->
+                        <div class="time-input-group">
+                            <span class="time-input-label">Start</span>
+                            <div class="time-hms">
+                                <input type="number" id="start-h" class="hms-input" min="0" max="99" value="0" placeholder="HH" title="Hours">
+                                <span class="hms-sep">:</span>
+                                <input type="number" id="start-m" class="hms-input" min="0" max="59" value="0" placeholder="MM" title="Minutes">
+                                <span class="hms-sep">:</span>
+                                <input type="number" id="start-s" class="hms-input" min="0" max="59" value="0" placeholder="SS" title="Seconds">
+                            </div>
+                        </div>
+
+                        <span class="time-separator-arrow">→</span>
+
+                        <!-- End HMS -->
+                        <div class="time-input-group">
+                            <span class="time-input-label">End</span>
+                            <div class="time-hms">
+                                <input type="number" id="end-h" class="hms-input" min="0" max="99" value="0" placeholder="HH" title="Hours">
+                                <span class="hms-sep">:</span>
+                                <input type="number" id="end-m" class="hms-input" min="0" max="59" value="0" placeholder="MM" title="Minutes">
+                                <span class="hms-sep">:</span>
+                                <input type="number" id="end-s" class="hms-input" min="0" max="59" value="0" placeholder="SS" title="Seconds">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Double handle slider -->
+                    <div class="range-slider-wrapper">
+                        <div class="range-slider-track" id="range-track">
+                            <div class="range-slider-progress" id="range-progress"></div>
+                            <div class="range-slider-thumb" id="thumb-start" role="slider" aria-label="Start time" tabindex="0"></div>
+                            <div class="range-slider-thumb" id="thumb-end" role="slider" aria-label="End time" tabindex="0"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Frame Estimation -->
+            <div class="setting-group">
+                <div class="frame-estimate" id="frame-estimate">
+                    <span class="frame-estimate-icon">🖼️</span>
+                    <span class="frame-estimate-text">Estimated frames: <strong id="frame-count">~0</strong></span>
+                </div>
+            </div>
+
+            <!-- Capture Mode -->
+            <div class="setting-group">
+                <label class="field-label">Capture Mode</label>
+                <div class="mode-cards">
+                    <button class="mode-card active" data-mode="full">
+                        <span class="mode-icon">📸</span>
+                        <span class="mode-label">Full Frame</span>
+                        <span class="mode-desc">Capture the entire frame</span>
+                    </button>
+                    <button class="mode-card" data-mode="crop">
+                        <span class="mode-icon">✂️</span>
+                        <span class="mode-label">Crop Region</span>
+                        <span class="mode-desc">Select a specific area</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Crop Region (hidden until crop mode) -->
+            <div id="crop-region" class="crop-region" hidden>
+                <div class="canvas-container">
+                    <canvas id="preview-canvas"></canvas>
+                    <div id="canvas-hint" class="canvas-hint">Click and drag to select region</div>
+                </div>
+                <div class="crop-inputs">
+                    <div class="crop-field">
+                        <label class="field-label-sm" for="crop-x">X</label>
+                        <input type="number" id="crop-x" class="text-input small-input" value="0" min="0">
+                    </div>
+                    <div class="crop-field">
+                        <label class="field-label-sm" for="crop-y">Y</label>
+                        <input type="number" id="crop-y" class="text-input small-input" value="0" min="0">
+                    </div>
+                    <div class="crop-field">
+                        <label class="field-label-sm" for="crop-w">Width</label>
+                        <input type="number" id="crop-w" class="text-input small-input" value="0" min="0">
+                    </div>
+                    <div class="crop-field">
+                        <label class="field-label-sm" for="crop-h">Height</label>
+                        <input type="number" id="crop-h" class="text-input small-input" value="0" min="0">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Output Format -->
+            <div class="setting-group">
+                <label class="field-label">Output Format</label>
+                <div class="toggle-group">
+                    <button class="toggle-btn active" data-format="png">PNG</button>
+                    <button class="toggle-btn" data-format="jpg">JPG</button>
+                    <div class="toggle-indicator"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 3: Output & Extraction -->
+        <section class="card card-section section-reveal" id="section-output" hidden>
+            <div class="card-header">
+                <span class="card-icon">📦</span>
+                <h2 class="card-title">Output & Extraction</h2>
+            </div>
+
+            <div class="setting-group">
+                <label class="checkbox-wrap">
+                    <input type="checkbox" id="zip-check" checked>
+                    <span class="checkbox-custom"></span>
+                    <span class="checkbox-label">Create ZIP archive</span>
+                </label>
+            </div>
+
+            <button id="btn-extract" class="btn btn-action">
+                <span class="btn-text">🚀 Start Extraction</span>
+                <span class="btn-loader" hidden></span>
+            </button>
+
+            <!-- Extraction Progress -->
+            <div id="extract-progress-area" class="progress-area" hidden>
+                <div class="progress-bar-track">
+                    <div id="extract-progress-bar" class="progress-bar-fill"></div>
+                    <div class="progress-shimmer"></div>
+                </div>
+                <div class="progress-stats">
+                    <span id="extract-percent" class="progress-percent">0%</span>
+                    <span id="extract-details" class="progress-details"></span>
+                </div>
+                <button id="btn-cancel" class="btn btn-cancel">
+                    <span class="btn-text">✕ Cancel</span>
+                </button>
+            </div>
+
+            <!-- Download Results -->
+            <div id="result-area" class="result-area" hidden>
+                <div class="result-success">
+                    <span class="result-icon">✅</span>
+                    <span id="result-text" class="result-text"></span>
+                </div>
+                <a id="btn-result" class="btn btn-primary btn-result" href="#" download>
+                    📦 Download Results
+                </a>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+        <div class="storage-bar">
+            <div class="storage-info">
+                <span class="storage-icon">💾</span>
+                <span>Temp storage: <strong id="storage-size">--</strong></span>
+                <span class="storage-path" id="storage-path"></span>
+            </div>
+            <button id="btn-cleanup" class="btn btn-cleanup" title="Delete all temporary files">
+                🗑️ Cleanup
+            </button>
+        </div>
+        <p>Powered by <strong>FFmpeg</strong> &amp; <strong>yt-dlp</strong></p>
+    </footer>
+
+    <!-- Toast container -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
