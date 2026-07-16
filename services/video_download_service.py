@@ -75,7 +75,7 @@ def download(
             if progress_callback:
                 progress_callback(100.0, "0 B/s", "00:00")
 
-    outtmpl = os.path.join(output_dir, "%(title)s.%(ext)s")
+    outtmpl = os.path.join(output_dir, "video.%(ext)s")
 
     ydl_opts: dict[str, Any] = {
         "format": fmt,
